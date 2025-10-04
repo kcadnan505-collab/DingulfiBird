@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dingulfi Bird</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+    background: linear-gradient(135deg,#6a11cb 0%,#2575fc 100%);
+    display:flex; justify-content:center; align-items:center;
+    height:100vh; font-family:'Poppins',sans-serif; overflow:hidden; color:white;
+}
+
+#gameContainer {
+    position:relative;
+    width:100%;
+    max-width:500px;
+    height:90vh;
+    max-height:800px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+}
+
+h1 {
+    font-size:2.8rem;
+    margin-bottom:5px;
+    text-shadow:2px 2px 8px rgba(0,0,0,0.3);
+    background:linear-gradient(to right,#ff8a00,#e52e71);
+    -webkit-background-clip:text;
+    -webkit-text-fill-color:transparent;
+    font-weight:700;
+}
+
+#gameCanvas {
+    border-radius:15px;
+    background: rgba(255,255,255,0.1);
+    backdrop-filter: blur(5px);
+    box-shadow:0 10px 30px rgba(0,0,0,0.2);
+    display:block;
+    width:100%; max-width:400px;
+    height:60vh; max-height:600px;
+}
+
+#controls {
+    margin-top:20px;
+    display:flex; gap:15px;
+}
+
+.btn {
+    padding:12px 25px;
+    font-size:1rem;
+    cursor:pointer;
+    border:none; border-radius:50px; font-weight:600;
+    transition:all 0.3s ease; box-shadow:0 4px 15px rgba(0,0,0,0.1);
+}
+
+#startBtn { background:linear-gradient(to right,#00b09b,#96c93d); color:white; }
+#restartBtn { background:linear-gradient(to right,#ff416c,#ff4b2b); color:white; display:none; }
+
+.btn:hover { transform:translateY(-3px); box-shadow:0 6px 20px rgba(0,0,0,0.15); }
+.btn:active { transform:translateY(1px); }
+
+#mobileControls {
+    display:none;
+    position:absolute;
+    bottom:20px;
+    width:100%;
+    justify-content:center;
+    gap:30px;
+}
+
+.flap-btn {
+    width:80px; height:80px; border-radius:50%;
+    background: rgba(255,255,255,0.2);
+    backdrop-filter: blur(10px);
+    display:flex; align-items:center; justify-content:center;
+    font-size:1.5rem; cursor:pointer; user-select:none;
+    box-shadow:0 4px 15px rgba(0,0,0,0.1);
+    border:2px solid rgba(255,255,255,0.3);
+}
+.flap-btn:active { background: rgba(255,255,255,0.3); transform:scale(0.95); }
+
+#gameOverlay {
+    position:absolute; top:0; left:0;
+    width:100%; height:100%;
+    background:rgba(0,0,0,0.7);
+    display:flex; flex-direction:column;
+    align-items:center; justify-content:center;
+    border-radius:15px; z-index:20; display:none;
+}
+
+.overlay-content {
+    text-align:center;
+    background: rgba(255,255,255,0.1);
+    backdrop-filter:blur(15px);
+    padding:30px; border-radius:20px;
+    box-shadow:0 10px 30px rgba(0,0,0,0.3);
+    max-width:80%;
+}
+
+.overlay-content h2 {
+    font-size:2.5rem;
+    margin-bottom:10px;
+    background:linear-gradient(to right,#ff8a00,#e52e71);
+    -webkit-background-clip:text;
+    -webkit-text-fill-color:transparent;
+}
+
+.overlay-content p { margin:15px 0; font-size:1.2rem; }
+
+.particles {
+    position:absolute; top:0; left:0; width:100%; height:100%; z-index:-1;
+}
+
+.particle {
+    position:absolute;
+    background: rgba(255,255,255,0.3);
+    border-radius:50%;
+    animation: float 15s infinite linear;
+}
+
+@keyframes float {
+    0% { transform: translateY(0) rotate(0deg); opacity:1; }
+    100% { transform: translateY(-1000px) rotate(720deg); opacity:0; }
+}
+
+/* Responsive */
+@media (max-width:768px){
+    #gameContainer{height:100vh; max-height:none; justify-content:flex-start; padding-top:10vh;}
+    h1{font-size:2.2rem;}
+    #gameCanvas{height:50vh;}
+    #mobileControls{display:flex;}
+    .btn{padding:10px 20px;font-size:0.9rem;}
+}
+</style>
+</head>
+<body>
+
+<div class="particles" id="particles"></div>
+
+<div id="gameContainer">
+    <h1>Dingulfi Bird</h1>
+
+    <canvas id="gameCanvas" width="400" height="600"></canvas>
+
+    <div id="controls">
+        <button id="startBtn" class="btn">Start Game</button>
+        <button id="restartBtn" class="btn">Restart</button>
+    </div>
+
+    <div id="mobileControls">
+        <div class="flap-btn">FLAP</div>
+    </div>
+
+    <div id="gameOverlay">
+        <div class="overlay-content">
+            <h2>Game Over</h2>
+            <p>Your Score: <span id="finalScore">0</span></p>
+            <p>High Score: <span id="finalHighScore">0</span></p>
+            <button id="overlayRestartBtn" class="btn">Play Again</button>
+        </div>
+    </div>
+</div>
+
+<audio id="bg-music" loop>
+    <source src="Mutta_Thailam.mp3" type="audio/mp3">
+</audio>
+
+<script>
+// --- Particles ---
+function createParticles(){
+    const particlesContainer=document.getElementById('particles');
+    particlesContainer.innerHTML='';
+    for(let i=0;i<30;i++){
+        const p=document.createElement('div'); p.classList.add('particle');
+        const size=Math.random()*20+5; p.style.width=p.style.height=size+'px';
+        p.style.left=Math.random()*100+'%';
+        p.style.animationDuration=(Math.random()*20+10)+'s';
+        p.style.animationDelay=Math.random()*5+'s';
+        particlesContainer.appendChild(p);
+    }
+}
+createParticles();
+
+// --- Game variables ---
+const canvas=document.getElementById('gameCanvas');
+const ctx=canvas.getContext('2d');
+const startBtn=document.getElementById('startBtn');
+const restartBtn=document.getElementById('restartBtn');
+const overlayRestartBtn=document.getElementById('overlayRestartBtn');
+const gameOverlay=document.getElementById('gameOverlay');
+const finalScoreEl=document.getElementById('finalScore');
+const finalHighScoreEl=document.getElementById('finalHighScore');
+const mobileFlapBtn=document.querySelector('.flap-btn');
+
+let bird={x:50,y:300,width:90,height:80,gravity:0.6,lift:-10,velocity:0};
+let pipes=[]; let frame=0; let score=0;
+let highScore=localStorage.getItem('dingulfiHighScore')||0;
+let gameOver=false; let pipeSpeed=2; let gameStarted=false;
+let shakeTime=0; let shakeIntensity=0;
+
+// Sounds
+const startSound=new Audio('D:\\Entha Enthhaa/Game starts.mp3');
+const flapSound=new Audio('https://www.soundjay.com/button/sounds/button-16.mp3');
+const hitSound=new Audio('https://www.soundjay.com/button/sounds/button-10.mp3');
+const scoreSound=new Audio('https://www.soundjay.com/button/sounds/button-3.mp3');
+const specialScoreSound=new Audio('D:\\Entha Enthhaa/Bird Score.mp3');
+const motivationSound=new Audio('D:\\Entha Enthhaa/Motivation.mp3');
+const bgMusic=document.getElementById('bg-music'); bgMusic.volume=0.3;
+
+function playSoundWithBgAdjustment(sound){
+    const originalVol=bgMusic.volume;
+    bgMusic.volume=0.1; sound.play();
+    sound.onended=()=>{ if(!gameOver) bgMusic.volume=originalVol; }
+}
+function stopAllSounds(){ [startSound,flapSound,hitSound,scoreSound,specialScoreSound,motivationSound].forEach(s=>{s.pause();s.currentTime=0;}); }
+
+// Bird images
+const birdImg=new Image(); birdImg.src='D:\\Entha Enthhaa/Bird.png';
+const birdImg2=new Image(); birdImg2.src='D:\\Entha Enthhaa/Bird2.png';
+
+// Pipe constructor
+function Pipe(){ 
+    let maxTop=score<5?canvas.height/4:canvas.height/2;
+    this.top=Math.random()*maxTop;
+    this.bottom=canvas.height-(this.top+200);
+    this.x=canvas.width; this.width=50;
+    this.speed=score<5?1.5:pipeSpeed;
+    this.draw=function(){ ctx.fillStyle='green'; ctx.fillRect(this.x,0,this.width,this.top); ctx.fillRect(this.x,canvas.height-this.bottom,this.width,this.bottom);}
+    this.update=function(){ this.x-=this.speed;}
+}
+
+// Drawing functions
+function drawBird(){ if(score>=5) ctx.drawImage(birdImg2,bird.x,bird.y,bird.width,bird.height); else ctx.drawImage(birdImg,bird.x,bird.y,bird.width,bird.height);}
+function drawPipes(){ pipes.forEach(pipe=>pipe.draw()); }
+
+// Bird physics
+function updateBird(){ bird.velocity+=bird.gravity; bird.y+=bird.velocity; if(bird.y+bird.height>canvas.height||bird.y<0) triggerGameOver(); }
+
+// Collision
+function checkCollision(){ pipes.forEach(pipe=>{ if(bird.x<pipe.x+pipe.width && bird.x+bird.width>pipe.x && (bird.y<pipe.top || bird.y+bird.height>canvas.height-pipe.bottom)) triggerGameOver();});}
+
+// Camera shake
+function triggerShake(duration,intensity){ shakeTime=duration; shakeIntensity=intensity;}
+function applyShake(){ if(shakeTime>0){ const dx=(Math.random()-0.5)*shakeIntensity; const dy=(Math.random()-0.5)*shakeIntensity; ctx.setTransform(1,0,0,1,dx,dy); shakeTime--;} else ctx.setTransform(1,0,0,1,0,0);}
+
+// Game over
+function triggerGameOver(){
+    if(gameOver) return; gameOver=true;
+    playSoundWithBgAdjustment(hitSound);
+    setTimeout(()=>{ motivationSound.play();},200);
+    stopAllSounds(); bgMusic.pause(); bgMusic.currentTime=0;
+    finalScoreEl.textContent=score; finalHighScoreEl.textContent=highScore;
+    gameOverlay.style.display='flex';
+}
+
+// Game loop
+function draw(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    applyShake(); drawBird(); drawPipes();
+
+    ctx.fillStyle='white'; ctx.font='20px Arial';
+    ctx.fillText('Score: '+score,10,30);
+    ctx.fillText('High Score: '+highScore,10,60);
+
+    if(!gameStarted){
+        ctx.fillStyle='yellow'; ctx.font='25px Arial';
+        ctx.fillText('Click or Press Space to Start',20,canvas.height/2);
+        requestAnimationFrame(draw); return;
+    }
+    if(gameOver) return;
+
+    updateBird(); checkCollision();
+
+    const pipeInterval=score<5?180:100;
+    if(frame%pipeInterval===0) pipes.push(new Pipe());
+    pipes.forEach(pipe=>pipe.update());
+
+    if(pipes.length && pipes[0].x+pipes[0].width<0){ pipes.shift(); score++;
+        if(score%5===0&&score!==0) triggerShake(8,10);
+        if(!gameOver){ if(score===5) playSoundWithBgAdjustment(specialScoreSound); else playSoundWithBgAdjustment(scoreSound);}
+        if(score>=5 && score%5===0) pipeSpeed+=0.2;
+    }
+
+    if(score>highScore){ highScore=score; localStorage.setItem('dingulfiHighScore',highScore);}
+    frame++; requestAnimationFrame(draw);
+}
+
+// Controls
+function flap(){ if(!gameStarted){ gameStarted=true; startSound.play(); triggerShake(10,8); bgMusic.play(); }
+    if(!gameOver && gameStarted){ bird.velocity=bird.lift; playSoundWithBgAdjustment(flapSound);}
+}
+document.addEventListener('keydown',e=>{if(e.code==='Space') flap();});
+document.addEventListener('mousedown',flap);
+document.addEventListener('touchstart',flap);
+mobileFlapBtn.addEventListener('mousedown',flap);
+mobileFlapBtn.addEventListener('touchstart',flap);
+
+// Buttons
+startBtn.addEventListener('click',flap);
+restartBtn.addEventListener('click',()=>{ resetGame(); });
+overlayRestartBtn.addEventListener('click',()=>{ resetGame(); });
+
+function resetGame(){
+    bird.y=300; bird.velocity=0; pipes=[]; score=0; frame=0; pipeSpeed=2; gameOver=false; gameStarted=false;
+    stopAllSounds(); bgMusic.pause(); bgMusic.currentTime=0; bgMusic.volume=0.3;
+    gameOverlay.style.display='none'; draw();
+}
+
+// Start loop
+draw();
+</script>
+</body>
+</html>
